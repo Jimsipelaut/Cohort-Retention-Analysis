@@ -6,7 +6,7 @@ This project demonstrates an end-to-end Business Intelligence workflow, from dat
 By tracking user activities and transactions based on their acquisition month, this dashboard provides actionable insights into customer lifecycle and engagement trends, which are crucial for calculating Customer Lifetime Value (CLV) and improving retention strategies.
 
 ## 🛠️ Tech Stack & Skills Demonstrated
-* **Relational Database:** MySQL (Data Definition, Data Manipulation)
+* **Relational Database:** MySQL / MariaDB (Data Definition, Data Manipulation)
 * **Advanced SQL:** Common Table Expressions (CTEs), Window Functions (`FIRST_VALUE`), Date/Time formatting, and Aggregations.
 * **Data Connector:** MySQL ODBC 64-bit Driver
 * **Data Visualization:** Power BI Desktop (Matrix Heatmap, DAX Measures, Conditional Formatting)
@@ -23,11 +23,9 @@ By tracking user activities and transactions based on their acquisition month, t
 * **Churn Pattern:** Distinct churn behavior is accurately captured, indicating active periods for specific membership groups before drop-off.
 
 ## 📂 Files Included
-* `schema_setup.sql` : DDL scripts for table creation.
-* `data_generation.sql` : DML scripts to populate dimensions and facts.
-* `cohort_view.sql` : The core logic utilizing CTEs and Window Functions.
-* `Cohort_Analysis_Portfolio.pbix` : The final Power BI dashboard.
-* `Dashboard_Preview.pdf` : High-resolution export of the visual report.
+* `cohort_analysis_full.sql` : Full SQL script containing database schema setup, synthetic data generation, and the core retention view logic.
+* `Cohort_Analysis_Portfolio.pbix` : The final interactive Power BI dashboard.
+* `Dashboard_Preview.png` : High-resolution preview of the final dashboard heatmap and KPI.
 
 ---
 *Created to showcase Data Engineering and Business Intelligence capabilities.*
