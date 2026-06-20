@@ -1,0 +1,123 @@
+/* =========================================================
+   CUSTOMER COHORT RETENTION ANALYSIS - FULL SCRIPT
+   Author: Pashya Mahesa
+   Description: End-to-end setup for cohort analysis including 
+                schema creation, data generation, and view logic.
+========================================================= */
+
+-- ---------------------------------------------------------
+-- TAHAP 1: PEMBUATAN DATABASE & TABEL
+-- ---------------------------------------------------------
+CREATE DATABASE IF NOT EXISTS cohort_analysis_db;
+USE cohort_analysis_db;
+
+CREATE TABLE IF NOT EXISTS dim_members (
+    member_id INT AUTO_INCREMENT PRIMARY KEY,
+    join_date DATE,
+    membership_type VARCHAR(50),
+    status VARCHAR(50)
+);
+
+CREATE TABLE IF NOT EXISTS fact_activity_logs (
+    log_id INT AUTO_INCREMENT PRIMARY KEY,
+    member_id INT,
+    activity_date DATE,
+    activity_type VARCHAR(50),
+    FOREIGN KEY (member_id) REFERENCES dim_members(member_id)
+);
+
+CREATE TABLE IF NOT EXISTS fact_transactions (
+    transaction_id INT AUTO_INCREMENT PRIMARY KEY,
+    member_id INT,
+    payment_date DATE,
+    amount INT,
+    FOREIGN KEY (member_id) REFERENCES dim_members(member_id)
+);
+
+-- ---------------------------------------------------------
+-- TAHAP 2: INSERT DATA SINTETIK MENGGUNAKAN RECURSIVE CTE
+-- ---------------------------------------------------------
+
+-- 1. Insert 120 Member (5 member per bulan selama 24 bulan)
+INSERT INTO dim_members (join_date, membership_type, status)
+WITH RECURSIVE numbers AS (
+    SELECT 1 AS n UNION ALL SELECT n + 1 FROM numbers WHERE n < 120
+)
+SELECT
+    DATE_ADD('2024-01-01', INTERVAL FLOOR((n - 1) / 5) MONTH) AS join_date,
+    CASE WHEN n % 3 = 0 THEN 'Premium' WHEN n % 3 = 1 THEN 'Basic' ELSE 'Standard' END AS membership_type,
+    CASE WHEN n % 10 = 0 THEN 'Churned' WHEN n % 7 = 0 THEN 'Inactive' ELSE 'Active' END AS status
+FROM numbers;
+
+-- 2. Insert Data Aktivitas (Menurun secara natural berdasarkan status member)
+INSERT INTO fact_activity_logs (member_id, activity_date, activity_type)
+WITH RECURSIVE month_series AS (
+    SELECT 0 AS month_offset UNION ALL SELECT month_offset + 1 FROM month_series WHERE month_offset < 23
+)
+SELECT
+    m.member_id,
+    DATE_ADD(DATE_FORMAT(m.join_date, '%Y-%m-01'), INTERVAL month_offset MONTH) AS activity_date,
+    CASE 
+        WHEN month_offset % 4 = 0 THEN 'Workout' 
+        WHEN month_offset % 4 = 1 THEN 'Check-In' 
+        WHEN month_offset % 4 = 2 THEN 'Class Booking' 
+        ELSE 'Mobile App' 
+    END AS activity_type
+FROM dim_members m CROSS JOIN month_series
+WHERE (m.status = 'Active' AND month_offset <= 18)
+   OR (m.status = 'Inactive' AND month_offset <= 8)
+   OR (m.status = 'Churned' AND month_offset <= 3);
+
+-- 3. Insert Data Transaksi (Berdasarkan Tipe Membership)
+INSERT INTO fact_transactions (member_id, payment_date, amount)
+WITH RECURSIVE month_series AS (
+    SELECT 0 AS month_offset UNION ALL SELECT month_offset + 1 FROM month_series WHERE month_offset < 23
+)
+SELECT
+    m.member_id,
+    DATE_ADD(DATE_FORMAT(m.join_date,'%Y-%m-01'), INTERVAL month_offset MONTH) AS payment_date,
+    CASE 
+        WHEN m.membership_type = 'Basic' THEN 100000 
+        WHEN m.membership_type = 'Standard' THEN 200000 
+        WHEN m.membership_type = 'Premium' THEN 350000 
+    END AS amount
+FROM dim_members m CROSS JOIN month_series
+WHERE (m.status = 'Active' AND month_offset <= 18)
+   OR (m.status = 'Inactive' AND month_offset <= 8)
+   OR (m.status = 'Churned' AND month_offset <= 3);
+
+-- ---------------------------------------------------------
+-- TAHAP 3: PEMBUATAN VIEW UNTUK POWER BI
+-- ---------------------------------------------------------
+
+CREATE OR REPLACE VIEW vw_cohort_retention AS
+WITH member_activity AS (
+    SELECT
+        m.member_id,
+        DATE_FORMAT(m.join_date,'%Y-%m-01') AS cohort_month,
+        DATE_FORMAT(a.activity_date,'%Y-%m-01') AS activity_month
+    FROM dim_members m
+    INNER JOIN fact_activity_logs a ON m.member_id = a.member_id
+),
+cohort_base AS (
+    SELECT
+        member_id,
+        cohort_month,
+        PERIOD_DIFF(DATE_FORMAT(activity_month,'%Y%m'), DATE_FORMAT(cohort_month,'%Y%m')) AS cohort_index
+    FROM member_activity
+),
+cohort_counts AS (
+    SELECT
+        cohort_month,
+        cohort_index,
+        COUNT(DISTINCT member_id) AS active_members
+    FROM cohort_base
+    GROUP BY cohort_month, cohort_index
+)
+SELECT
+    cohort_month,
+    cohort_index,
+    active_members,
+    FIRST_VALUE(active_members) OVER (PARTITION BY cohort_month ORDER BY cohort_index) AS cohort_size,
+    ROUND(active_members * 100.0 / FIRST_VALUE(active_members) OVER (PARTITION BY cohort_month ORDER BY cohort_index), 2) AS retention_rate
+FROM cohort_counts;
