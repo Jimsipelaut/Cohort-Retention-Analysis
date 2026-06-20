@@ -27,5 +27,5 @@ By tracking user activities and transactions based on their acquisition month, t
 * `Cohort_Analysis_Portfolio.pbix` : The final interactive Power BI dashboard.
 * `Dashboard_Preview.png` : High-resolution preview of the final dashboard heatmap and KPI.
 
----
-*Created to showcase Data Engineering and Business Intelligence capabilities.*
+<img width="1086" height="603" alt="image" src="https://github.com/user-attachments/assets/bbdcc895-64fa-4940-bf2a-4d32f1904568" />
+
